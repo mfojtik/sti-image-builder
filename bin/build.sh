@@ -1,20 +1,22 @@
 #!/bin/bash
 
+# The source_dir is the last segment from repository URL
 source_dir=$(echo $SOURCE_URI | grep -o -e "[^/]*$")
 
+result=1
+
 if [ -z "${IMAGE_NAME}" ]; then
-  echo "[ERROR] The IMAGE_NAME variable must be set"
-  exit 1
+  echo "[ERROR] The IMAGE_NAME environment variable must be set"
+  exit $result
 fi
 
 # Clone the STI image repository
 git clone $SOURCE_URI
 if ! [ $? -eq 0 ]; then
   echo "[ERROR] Unable to clone the STI image repository."
-  exit 1
+  exit $result
 fi
 
-status=1
 
 pushd $source_dir >/dev/null
   # Checkout desired ref
@@ -23,24 +25,29 @@ pushd $source_dir >/dev/null
   fi
 
   docker build -t ${IMAGE_NAME}-candidate .
+  result=$?
+  if ! [ $result -eq 0 ]; then
+    echo "[ERROR] Unable to build ${IMAGE_NAME}-candidate image (${result})"
+  fi
 
   # Verify the 'test/run' is present
   if ! [ -x "./test/run" ]; then
     echo "[ERROR] Unable to locate the 'test/run' command for the image"
-    exit $status
+    exit 1
   fi
 
   # Execute tests
   ./test/run
-  status=$?
-  if [ $status -eq 0]; then
+  result=$?
+  if [ $result -eq 0]; then
     echo "[SUCCESS] ${IMAGE_NAME} image tests executed successfully"
   else
-    echo "[FAILURE] ${IMAGE_NAME} image tests failed ($status)" && exit $status
+    echo "[FAILURE] ${IMAGE_NAME} image tests failed ($result)"
+    exit $result
   fi
 popd >/dev/null
 
-# After successful build, retag the image to 'qa-ready'
+# After successfull build, retag the image to 'qa-ready'
 # TODO: Define image promotion process
 #
 image_id=$(docker inspect --format="{{ .Id }}" ${IMAGE_NAME}-candidate:latest)
