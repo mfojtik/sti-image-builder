@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # The source_dir is the last segment from repository URL
-source_dir=$(echo $SOURCE_URI | grep -o -e "[^/]*$")
+source_dir=$(echo $SOURCE_URI | grep -o -e "[^/]*$" | sed -e "s/\.git$//")
 
 result=1
 
